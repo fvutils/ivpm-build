@@ -1,0 +1,206 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ivpm-build &mdash; ivpm-build  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            ivpm-build
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/config.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.config</span></code> API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/backend.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/cmake.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.cmake</span></code> API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">ivpm-build</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">ivpm-build</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ivpm-build">
+<h1>ivpm-build<a class="headerlink" href="#ivpm-build" title="Link to this heading"></a></h1>
+<p><strong>ivpm-build</strong> is a standalone Python package that extracts the build
+infrastructure from <a class="reference external" href="https://github.com/fvutils/ivpm">ivpm</a> so projects
+can depend on it at build time without pulling in the full IVPM tool chain.</p>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#relationship-to-ivpm">Relationship to <code class="docutils literal notranslate"><span class="pre">ivpm</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="migration.html#path-1-legacy-setup-py-one-line-change">Path 1 — Legacy <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> (one-line change)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="migration.html#path-2-hybrid-pyproject-toml-setup-py">Path 2 — Hybrid <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> + <code class="docutils literal notranslate"><span class="pre">setup.py</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="migration.html#path-3-pure-pyproject-toml">Path 3 — Pure <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#extra-data-entries"><code class="docutils literal notranslate"><span class="pre">extra-data</span></code> entries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#ext-name-map-entries"><code class="docutils literal notranslate"><span class="pre">ext-name-map</span></code> entries</a></li>
+<li class="toctree-l2"><a class="reference internal" href="configuration.html#template-variables">Template variables</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#activating-the-backend">Activating the backend</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#when-to-use-this-backend-vs-the-setup-py-wrapper">When to use this backend vs. the <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> wrapper</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#what-the-backend-does">What the backend does</a></li>
+<li class="toctree-l2"><a class="reference internal" href="backend.html#exposed-hooks">Exposed hooks</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#cmake-build-tool-environment-variable"><code class="docutils literal notranslate"><span class="pre">CMAKE_BUILD_TOOL</span></code> environment variable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#debug-flag"><code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> flag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#packages-dir-convention"><code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> convention</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#platform-notes">Platform notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#optional-scikit-build-core-bridge-ivpmhook">Optional <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code> bridge (<code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code>)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.setup"><code class="docutils literal notranslate"><span class="pre">setup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.apply_ivpm_setup"><code class="docutils literal notranslate"><span class="pre">apply_ivpm_setup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.BuildExt"><code class="docutils literal notranslate"><span class="pre">BuildExt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.InstallLib"><code class="docutils literal notranslate"><span class="pre">InstallLib</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.wrapper.setup"><code class="docutils literal notranslate"><span class="pre">setup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.wrapper.apply_ivpm_setup"><code class="docutils literal notranslate"><span class="pre">apply_ivpm_setup()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.ivpm_data.get_hooks"><code class="docutils literal notranslate"><span class="pre">get_hooks()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.ivpm_data.get_ivpm_extra_data"><code class="docutils literal notranslate"><span class="pre">get_ivpm_extra_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.ivpm_data.get_ivpm_extdep_data"><code class="docutils literal notranslate"><span class="pre">get_ivpm_extdep_data()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.ivpm_data.get_ivpm_ext_name_m"><code class="docutils literal notranslate"><span class="pre">get_ivpm_ext_name_m()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.ivpm_data.get_package_dir"><code class="docutils literal notranslate"><span class="pre">get_package_dir()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.ivpm_data.expand"><code class="docutils literal notranslate"><span class="pre">expand()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.ivpm_data.expand_libvars"><code class="docutils literal notranslate"><span class="pre">expand_libvars()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.build_ext.BuildExt"><code class="docutils literal notranslate"><span class="pre">BuildExt</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/setup.html#ivpm_build.setup.install_lib.InstallLib"><code class="docutils literal notranslate"><span class="pre">InstallLib</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/config.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.config</span></code> API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/config.html#ivpm_build.config.ExtraDataSpec"><code class="docutils literal notranslate"><span class="pre">ExtraDataSpec</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/config.html#ivpm_build.config.ExtNameMapEntry"><code class="docutils literal notranslate"><span class="pre">ExtNameMapEntry</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/config.html#ivpm_build.config.IvpmBuildConfig"><code class="docutils literal notranslate"><span class="pre">IvpmBuildConfig</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/config.html#ivpm_build.config.load_config"><code class="docutils literal notranslate"><span class="pre">load_config()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/backend.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/backend.html#ivpm_build.backend.get_requires_for_build_wheel"><code class="docutils literal notranslate"><span class="pre">get_requires_for_build_wheel()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/backend.html#ivpm_build.backend.prepare_metadata_for_build_wheel"><code class="docutils literal notranslate"><span class="pre">prepare_metadata_for_build_wheel()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/backend.html#ivpm_build.backend.build_wheel"><code class="docutils literal notranslate"><span class="pre">build_wheel()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/backend.html#ivpm_build.backend.build_sdist"><code class="docutils literal notranslate"><span class="pre">build_sdist()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/backend.html#ivpm_build.backend.build_editable"><code class="docutils literal notranslate"><span class="pre">build_editable()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/backend.html#ivpm_build.backend.get_requires_for_build_editable"><code class="docutils literal notranslate"><span class="pre">get_requires_for_build_editable()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/backend.html#ivpm_build.backend.prepare_metadata_for_build_editable"><code class="docutils literal notranslate"><span class="pre">prepare_metadata_for_build_editable()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api/cmake.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.cmake</span></code> API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/cmake.html#ivpm_build.cmake.CmakeBuilder"><code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/cmake.html#ivpm_build.cmake.cmake_builder.CmakeBuilder"><code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/cmake.html#ivpm_build.cmake.skbuild_bridge.collect_cmake_args"><code class="docutils literal notranslate"><span class="pre">collect_cmake_args()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/cmake.html#ivpm_build.cmake.skbuild_bridge.IVPMHook"><code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div>
+<section id="indices-and-tables">
+<h2>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Matthew Ballance.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

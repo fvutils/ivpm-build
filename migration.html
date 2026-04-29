@@ -1,0 +1,222 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Migrating from ivpm.setup &mdash; ivpm-build  documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=5929fcd5"></script>
+      <script src="_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="[tool.ivpm-build] Configuration Reference" href="configuration.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            ivpm-build
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#path-1-legacy-setup-py-one-line-change">Path 1 — Legacy <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> (one-line change)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#path-2-hybrid-pyproject-toml-setup-py">Path 2 — Hybrid <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> + <code class="docutils literal notranslate"><span class="pre">setup.py</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#path-3-pure-pyproject-toml">Path 3 — Pure <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/config.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.config</span></code> API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/backend.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/cmake.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.cmake</span></code> API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">ivpm-build</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/migration.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="migrating-from-ivpm-setup">
+<h1>Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code><a class="headerlink" href="#migrating-from-ivpm-setup" title="Link to this heading"></a></h1>
+<p>Three integration paths are available, depending on how much you want to
+modernise your project’s build system.</p>
+<hr class="docutils" />
+<section id="path-1-legacy-setup-py-one-line-change">
+<h2>Path 1 — Legacy <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> (one-line change)<a class="headerlink" href="#path-1-legacy-setup-py-one-line-change" title="Link to this heading"></a></h2>
+<p>The simplest migration: change a single import line.  Everything else stays
+the same.</p>
+<p><strong>Before</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">ivpm.setup</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup</span>
+</pre></div>
+</div>
+<p><strong>After</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">ivpm_build.setup</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup.setup()</span></code> is a drop-in replacement that accepts the same
+keyword arguments (<code class="docutils literal notranslate"><span class="pre">ivpm_extdep_pkgs</span></code>, <code class="docutils literal notranslate"><span class="pre">ivpm_extra_data</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ivpm_ext_name_m</span></code>, <code class="docutils literal notranslate"><span class="pre">ivpm_hooks</span></code>, etc.) and injects <code class="docutils literal notranslate"><span class="pre">BuildExt</span></code> /
+<code class="docutils literal notranslate"><span class="pre">InstallLib</span></code> into the <code class="docutils literal notranslate"><span class="pre">cmdclass</span></code> dict just as the original did.</p>
+</section>
+<hr class="docutils" />
+<section id="path-2-hybrid-pyproject-toml-setup-py">
+<h2>Path 2 — Hybrid <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> + <code class="docutils literal notranslate"><span class="pre">setup.py</span></code><a class="headerlink" href="#path-2-hybrid-pyproject-toml-setup-py" title="Link to this heading"></a></h2>
+<p>Keep a <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> for extension configuration but express package metadata
+in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> and use <code class="docutils literal notranslate"><span class="pre">apply_ivpm_setup()</span></code> instead of wrapping
+<code class="docutils literal notranslate"><span class="pre">setup()</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> — <strong>before</strong> (no <code class="docutils literal notranslate"><span class="pre">[build-system]</span></code> table):</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[project]</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;myproject&quot;</span>
+<span class="p">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> — <strong>after</strong>:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[build-system]</span>
+<span class="n">requires</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;ivpm-build&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;setuptools&gt;=64&quot;</span><span class="p">]</span>
+<span class="n">build-backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;setuptools.build_meta&quot;</span>
+
+<span class="k">[project]</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;myproject&quot;</span>
+<span class="p">...</span>
+
+<span class="k">[tool.ivpm-build]</span>
+<span class="n">ivpm-dep-pkgs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mypkg&quot;</span><span class="p">]</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">setup.py</span></code> — <strong>before</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">ivpm.setup</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">setuptools</span><span class="w"> </span><span class="kn">import</span> <span class="n">Extension</span>
+
+<span class="n">setup</span><span class="p">(</span>
+    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;myproject&quot;</span><span class="p">,</span>
+    <span class="n">ext_modules</span><span class="o">=</span><span class="p">[</span><span class="n">Extension</span><span class="p">(</span><span class="s2">&quot;myproject._core&quot;</span><span class="p">,</span> <span class="n">sources</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;src/core.cpp&quot;</span><span class="p">])],</span>
+    <span class="n">ivpm_extdep_pkgs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mypkg&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">setup.py</span></code> — <strong>after</strong>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">setuptools</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup</span><span class="p">,</span> <span class="n">Extension</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ivpm_build.setup</span><span class="w"> </span><span class="kn">import</span> <span class="n">apply_ivpm_setup</span>
+
+<span class="n">ext</span> <span class="o">=</span> <span class="n">Extension</span><span class="p">(</span><span class="s2">&quot;myproject._core&quot;</span><span class="p">,</span> <span class="n">sources</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;src/core.cpp&quot;</span><span class="p">])</span>
+<span class="n">apply_ivpm_setup</span><span class="p">(</span><span class="n">ext_modules</span><span class="o">=</span><span class="p">[</span><span class="n">ext</span><span class="p">],</span> <span class="n">ivpm_extdep_pkgs</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;mypkg&quot;</span><span class="p">])</span>
+<span class="n">setup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;myproject&quot;</span><span class="p">,</span> <span class="n">ext_modules</span><span class="o">=</span><span class="p">[</span><span class="n">ext</span><span class="p">])</span>
+</pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="path-3-pure-pyproject-toml">
+<h2>Path 3 — Pure <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code><a class="headerlink" href="#path-3-pure-pyproject-toml" title="Link to this heading"></a></h2>
+<p>Eliminate <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> entirely.  Use <code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> as the PEP 517
+build backend.</p>
+<p><strong>Before</strong> (has a <code class="docutils literal notranslate"><span class="pre">setup.py</span></code>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># setup.py</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">ivpm.setup</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup</span>
+<span class="o">...</span>
+</pre></div>
+</div>
+<p><strong>After</strong> — <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> only:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[build-system]</span>
+<span class="n">requires</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;ivpm-build&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;setuptools&gt;=64&quot;</span><span class="p">]</span>
+<span class="n">build-backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;ivpm_build.backend&quot;</span>
+
+<span class="k">[project]</span>
+<span class="n">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;myproject&quot;</span>
+<span class="p">...</span>
+
+<span class="k">[tool.ivpm-build]</span>
+<span class="n">cmake</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="n">ivpm-dep-pkgs</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;mypkg&quot;</span><span class="p">]</span>
+
+<span class="k">[[tool.ivpm-build.extra-data]]</span>
+<span class="n">pkg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;myproject&quot;</span>
+<span class="n">src</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;build/{libdir}/{libpref}mycore{dllext}&quot;</span>
+<span class="n">dst</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;share&quot;</span>
+</pre></div>
+</div>
+<p>Delete <code class="docutils literal notranslate"><span class="pre">setup.py</span></code>.  The backend will configure CMake, call
+<code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code>, inject IVPM paths, and delegate wheel/sdist building to
+<code class="docutils literal notranslate"><span class="pre">setuptools.build_meta</span></code>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="configuration.html" class="btn btn-neutral float-right" title="[tool.ivpm-build] Configuration Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Matthew Ballance.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
