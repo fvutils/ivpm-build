@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://fvutils.github.io/ivpm/ivpm.json
+
+package:
+  name: ivpm-build
+
+  dep-sets:
+  - name: default
+    deps:
+    - name: ivpm
+      src: pypi
+    - name: setuptools
+      src: pypi
+    - name: tomli
+      src: pypi     # Python < 3.11 fallback for tomllib
+
+  - name: default-dev
+    deps:
+    - name: ivpm
+      src: pypi
+    - name: setuptools
+      src: pypi
+    - name: tomli
+      src: pypi
+    - name: pytest
+      src: pypi
+    - name: pytest-cov
+      src: pypi
+    - name: build
+      src: pypi
+    - name: wheel
+      src: pypi
+    - name: twine
+      src: pypi
+    - name: Sphinx
+      src: pypi
+    - name: sphinx-rtd-theme
+      src: pypi
+    - name: sphinx-argparse
+      src: pypi
+    - name: myst-parser
+      src: pypi
+
+  env-sets:
+    - name: project
+      env:
+        - name: PYTHONPATH
+          value: $IVPM_HOME/src

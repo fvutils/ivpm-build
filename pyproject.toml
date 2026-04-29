@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ivpm-build"
+dynamic = ["version"]
+description = "Build helpers and PEP 517 backend for IVPM-managed Python extension projects"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Matthew Ballance", email = "matt.ballance@gmail.com"},
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "ivpm",
+    "setuptools>=64",
+    "tomli>=1.2; python_version<'3.11'",
+]
+
+[project.optional-dependencies]
+cmake  = ["scikit-build-core"]
+dev    = [
+    "pytest", "pytest-cov", "build", "wheel", "twine",
+    "Sphinx", "sphinx-rtd-theme", "sphinx-argparse", "myst-parser",
+]
+
+[project.urls]
+Homepage      = "https://github.com/fvutils/ivpm-build"
+Documentation = "https://fvutils.github.io/ivpm-build"
+Repository    = "https://github.com/fvutils/ivpm-build"
+
+[tool.setuptools.dynamic]
+version = {attr = "ivpm_build._version._pkg_version"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

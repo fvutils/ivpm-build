@@ -1,0 +1,58 @@
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ci-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Bootstrap IVPM
+      run: |
+        pip install ivpm
+        python -m ivpm update --py-only
+
+    - name: Install dev dependencies
+      run: |
+        ./packages/python/bin/python3 -m pip install -e ".[dev]"
+
+    - name: Run Tests
+      run: |
+        ./packages/python/bin/python3 -m pytest test/ -v --tb=short \
+          --cov=src/ivpm_build --cov-report=term-missing
+
+    - name: Build Package
+      run: |
+        rm -rf dist/
+        sed -i -e "s/^SUFFIX = \"\"$/SUFFIX = \".${GITHUB_RUN_ID}\"/" \
+          src/ivpm_build/_version.py
+        ./packages/python/bin/python3 -m build .
+
+    - name: Build Docs
+      run: |
+        ./packages/python/bin/python3 -m pip install \
+          sphinx sphinx-rtd-theme sphinx-argparse myst-parser
+        ./packages/python/bin/sphinx-build -M html ./docs/source build
+        touch build/html/.nojekyll
+
+    - name: Publish to PyPI
+      if: ${{ startsWith(github.ref, 'refs/heads/main') }}
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        user: __token__
+        password: ${{ secrets.PYPI_API_TOKEN }}
+
+    - name: Publish Docs
+      if: ${{ startsWith(github.ref, 'refs/heads/main') }}
+      uses: JamesIves/github-pages-deploy-action@4.1.7
+      with:
+        branch: gh-pages
+        folder: build/html
