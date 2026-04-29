@@ -1,18 +1,28 @@
 # ivpm-build
 
-Build helpers and PEP 517 backend for [IVPM](https://github.com/fvutils/ivpm)-managed Python extension projects.
+Build tooling for Python packages that wrap native C/C++ extensions, with
+[IVPM](https://github.com/fvutils/ivpm) integration for cross-package
+dependency resolution.
 
-`ivpm-build` is a standalone package that extracts the build infrastructure
-from `ivpm` so projects can use it without depending on the full IVPM tool chain
-at build time.
+`ivpm-build` handles the full native-extension build pipeline:
 
-## Features
+1. **CMake build** — configure, build, and install native code via `CmakeBuilder`
+2. **Python extension compile** — Cython/C++ extension compilation via a
+   `BuildExt` command that injects include and library paths from IVPM-managed
+   dependencies
+3. **Shared-library packaging** — `InstallLib` copies native `.so`/`.dll`/`.dylib`
+   files into the wheel alongside the Python extension module
+4. **IVPM dependency resolution** — queries the IVPM package registry
+   (`PkgInfoRgy`) to obtain include dirs, library dirs, and Cython `.pxd` files
+   from other IVPM-managed native packages listed in `ivpm.yaml`
 
-- Drop-in replacement for `ivpm.setup.setup()` (backward compatible)
-- `[tool.ivpm-build]` config section in `pyproject.toml`
-- PEP 517 build backend wrapping `setuptools.build_meta`
-- CMake helpers (`CmakeBuilder`) decoupled from the setuptools command hierarchy
-- Optional `scikit-build-core` bridge (`IVPMHook`)
+## When to use `ivpm-build`
+
+Use `ivpm-build` when your Python package:
+
+- wraps a C/C++ library built with CMake, **and/or**
+- exposes a Cython extension that links against native libraries from other
+  IVPM-managed packages (e.g. `debug-mgr`, `ciostream`, `antlr4-runtime`)
 
 ## Installation
 
@@ -20,63 +30,63 @@ at build time.
 pip install ivpm-build
 ```
 
-With CMake support:
-
-```bash
-pip install ivpm-build[cmake]
-```
-
 ## Quick Start
 
-### Path 1 — Legacy `setup.py` (one-line change)
-
-```python
-# Before
-from ivpm.setup import setup
-# After
-from ivpm_build.setup import setup
-```
-
-### Path 2 — Hybrid `pyproject.toml` + `setup.py`
-
-Add to `pyproject.toml`:
+### `pyproject.toml` (recommended)
 
 ```toml
 [build-system]
-requires = ["ivpm-build", "setuptools>=64"]
+requires = ["setuptools>=64", "wheel", "cython", "ivpm-build", "ivpm"]
 build-backend = "setuptools.build_meta"
-
-[tool.ivpm-build]
-ivpm-dep-pkgs = ["mypkg"]
 ```
 
-In `setup.py`:
+### `setup.py`
 
 ```python
-from setuptools import setup
+from ivpm_build.setup import setup   # replaces ivpm.setup.setup
 from setuptools import Extension
-from ivpm_build.setup import apply_ivpm_setup
 
-ext = Extension("mymod._mymod", sources=["src/mymod.cpp"])
-apply_ivpm_setup(ext_modules=[ext], ivpm_extdep_pkgs=["mypkg"])
-setup(name="mymod", ext_modules=[ext])
+ext = Extension("mypkg._core", sources=["python/core.pyx"], language="c++")
+
+setup(
+    name="mypkg",
+    ext_modules=[ext],
+    ivpm_extdep_pkgs=["debug-mgr", "ciostream"],   # IVPM deps → include/lib paths
+    ivpm_extra_data={
+        "mypkg": [
+            ("build/{libdir}/{libpref}mypkg{dllext}", ""),  # bundle native lib
+        ]
+    },
+)
 ```
 
-### Path 3 — Pure `pyproject.toml`
+`BuildExt` (injected by `setup()`) automatically resolves include directories,
+library directories, and Cython `.pxd` search paths from each package listed in
+`ivpm_extdep_pkgs` via the IVPM registry.
 
-```toml
-[build-system]
-requires = ["ivpm-build", "setuptools>=64"]
-build-backend = "ivpm_build.backend"
+### CMake-only build
 
-[tool.ivpm-build]
-cmake = true
-ivpm-dep-pkgs = ["mypkg"]
+```python
+from ivpm_build.cmake import CmakeBuilder
+
+builder = CmakeBuilder(proj_dir="/path/to/project")
+builder.run()   # cmake configure → build → install
 ```
+
+## Integration paths
+
+| Path | When to use |
+|---|---|
+| **Path 1** — swap `from ivpm.setup import setup` → `from ivpm_build.setup import setup` | Existing `setup.py` project, zero-change migration |
+| **Path 2** — `apply_ivpm_setup()` in `setup.py` + `pyproject.toml` metadata | Fine-grained control over extension descriptors |
+| **Path 3** — pure `pyproject.toml` with `build-backend = "ivpm_build.backend"` | New projects or full modernisation |
+
+See the [migration guide](https://fvutils.github.io/ivpm-build/migration.html)
+for step-by-step instructions.
 
 ## Documentation
 
-Full documentation is published at https://fvutils.github.io/ivpm-build
+Full documentation: https://fvutils.github.io/ivpm-build
 
 ## License
 

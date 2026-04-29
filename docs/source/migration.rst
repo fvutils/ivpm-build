@@ -1,8 +1,14 @@
 Migrating from ``ivpm.setup``
 =============================
 
-Three integration paths are available, depending on how much you want to
-modernise your project's build system.
+Projects that previously used ``from ivpm.setup import setup`` can migrate to
+``ivpm_build`` with minimal changes.  Three integration paths are available,
+depending on how much you want to modernise your project's build system.
+
+All three paths preserve the same core behaviour: ``BuildExt`` injects include
+and library paths from IVPM-managed dependencies, ``InstallLib`` packages native
+shared libraries into the wheel, and the IVPM package registry is queried at
+build time to resolve dependency paths.
 
 ----
 
