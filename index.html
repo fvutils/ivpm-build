@@ -44,10 +44,10 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.config</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/backend.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> API</a></li>
@@ -80,15 +80,32 @@
              
   <section id="ivpm-build">
 <h1>ivpm-build<a class="headerlink" href="#ivpm-build" title="Link to this heading"></a></h1>
-<p><strong>ivpm-build</strong> is a standalone Python package that extracts the build
-infrastructure from <a class="reference external" href="https://github.com/fvutils/ivpm">ivpm</a> so projects
-can depend on it at build time without pulling in the full IVPM tool chain.</p>
+<p><strong>ivpm-build</strong> is build tooling for Python packages that wrap native C/C++
+extensions.  It handles the full pipeline — CMake-based native builds, Python
+extension (Cython/C++) compilation, shared-library packaging — and integrates
+with <a class="reference external" href="https://github.com/fvutils/ivpm">IVPM</a> to resolve include paths,
+library paths, and Cython <code class="docutils literal notranslate"><span class="pre">.pxd</span></code> files from other IVPM-managed native
+packages declared in <code class="docutils literal notranslate"><span class="pre">ivpm.yaml</span></code>.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> when your Python package wraps a C/C++ library built with
+CMake, or exposes a Cython extension that links against native libraries from
+other IVPM-managed packages.</p>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="installation.html#how-it-fits-into-a-native-extension-project">How it fits into a native-extension project</a></li>
 <li class="toctree-l2"><a class="reference internal" href="installation.html#relationship-to-ivpm">Relationship to <code class="docutils literal notranslate"><span class="pre">ivpm</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#what-gets-built">What gets built</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#packages-dir-and-ivpm-dependency-layout"><code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> and IVPM dependency layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#basic-usage">Basic usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#cmake-build-tool-environment-variable"><code class="docutils literal notranslate"><span class="pre">CMAKE_BUILD_TOOL</span></code> environment variable</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#debug-flag"><code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> flag</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#platform-notes">Platform notes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="cmake.html#optional-scikit-build-core-bridge-ivpmhook">Optional <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code> bridge (<code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a><ul>
@@ -108,15 +125,6 @@ can depend on it at build time without pulling in the full IVPM tool chain.</p>
 <li class="toctree-l2"><a class="reference internal" href="backend.html#when-to-use-this-backend-vs-the-setup-py-wrapper">When to use this backend vs. the <code class="docutils literal notranslate"><span class="pre">setup.py</span></code> wrapper</a></li>
 <li class="toctree-l2"><a class="reference internal" href="backend.html#what-the-backend-does">What the backend does</a></li>
 <li class="toctree-l2"><a class="reference internal" href="backend.html#exposed-hooks">Exposed hooks</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cmake.html#basic-usage">Basic usage</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cmake.html#cmake-build-tool-environment-variable"><code class="docutils literal notranslate"><span class="pre">CMAKE_BUILD_TOOL</span></code> environment variable</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cmake.html#debug-flag"><code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> flag</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cmake.html#packages-dir-convention"><code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> convention</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cmake.html#platform-notes">Platform notes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="cmake.html#optional-scikit-build-core-bridge-ivpmhook">Optional <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code> bridge (<code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code>)</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a><ul>

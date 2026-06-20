@@ -19,7 +19,7 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Migrating from ivpm.setup" href="migration.html" />
+    <link rel="next" title="CMake Integration" href="cmake.html" />
     <link rel="prev" title="ivpm-build" href="index.html" /> 
 </head>
 
@@ -46,13 +46,14 @@
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Installation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#from-pypi">From PyPI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#how-it-fits-into-a-native-extension-project">How it fits into a native-extension project</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#relationship-to-ivpm">Relationship to <code class="docutils literal notranslate"><span class="pre">ivpm</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cmake.html">CMake Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.config</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/backend.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> API</a></li>
@@ -90,19 +91,40 @@
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>ivpm-build
 </pre></div>
 </div>
-<p>With optional CMake support (pulls in <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code>):</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>ivpm-build<span class="o">[</span>cmake<span class="o">]</span>
-</pre></div>
-</div>
+</section>
+<section id="how-it-fits-into-a-native-extension-project">
+<h2>How it fits into a native-extension project<a class="headerlink" href="#how-it-fits-into-a-native-extension-project" title="Link to this heading"></a></h2>
+<p>A typical project using <code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> has this structure:</p>
+<ul class="simple">
+<li><p>A C/C++ library built with <strong>CMake</strong> (outputs <code class="docutils literal notranslate"><span class="pre">.so</span></code> / <code class="docutils literal notranslate"><span class="pre">.dll</span></code> / <code class="docutils literal notranslate"><span class="pre">.dylib</span></code>).</p></li>
+<li><p>One or more <strong>Cython</strong> <code class="docutils literal notranslate"><span class="pre">.pyx</span></code> files that wrap the native library.</p></li>
+<li><p>One or more <strong>IVPM-managed</strong> native packages (e.g. <code class="docutils literal notranslate"><span class="pre">debug-mgr</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ciostream</span></code>) whose headers and libraries must be on the compiler’s include
+and link paths.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> wires these pieces together:</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code> drives the CMake configure → build → install cycle.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BuildExt</span></code> (a custom <code class="docutils literal notranslate"><span class="pre">build_ext</span></code> command) queries the IVPM package
+registry (<code class="docutils literal notranslate"><span class="pre">PkgInfoRgy</span></code>) to inject include dirs, library dirs, and Cython
+<code class="docutils literal notranslate"><span class="pre">.pxd</span></code> search paths from every package listed in <code class="docutils literal notranslate"><span class="pre">ivpm_extdep_pkgs</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">InstallLib</span></code> copies the built native shared library into the installed
+Python package so the wheel is self-contained.</p></li>
+</ol>
 </section>
 <section id="relationship-to-ivpm">
 <h2>Relationship to <code class="docutils literal notranslate"><span class="pre">ivpm</span></code><a class="headerlink" href="#relationship-to-ivpm" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> is a build-time companion for projects that are managed by
-<a class="reference external" href="https://github.com/fvutils/ivpm">ivpm</a>.  It extracts the
-<code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code> build helpers into a lightweight package that only needs to be
-present when building — not when running — the project.</p>
-<p>Runtime code that queries the IVPM package registry (<code class="docutils literal notranslate"><span class="pre">PkgInfoRgy</span></code>) still
-requires <code class="docutils literal notranslate"><span class="pre">ivpm</span></code> itself.</p>
+<p><code class="docutils literal notranslate"><span class="pre">ivpm</span></code> is the full dependency-management tool.  <code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> is a
+lightweight build-time companion that:</p>
+<ul class="simple">
+<li><p>is listed in <code class="docutils literal notranslate"><span class="pre">[build-system].requires</span></code> in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> so it is
+available during <code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span></code> / <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">build</span></code>, and</p></li>
+<li><p>calls into <code class="docutils literal notranslate"><span class="pre">ivpm</span></code>'s package registry at build time to resolve paths for
+IVPM-managed native dependencies.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">ivpm</span></code> itself is therefore also required at build time (for <code class="docutils literal notranslate"><span class="pre">PkgInfoRgy</span></code>
+queries) and must be listed alongside <code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> in
+<code class="docutils literal notranslate"><span class="pre">[build-system].requires</span></code>.</p>
 </section>
 </section>
 
@@ -111,7 +133,7 @@ requires <code class="docutils literal notranslate"><span class="pre">ivpm</span
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="ivpm-build" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="migration.html" class="btn btn-neutral float-right" title="Migrating from ivpm.setup" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="cmake.html" class="btn btn-neutral float-right" title="CMake Integration" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -2,8 +2,35 @@ CMake Integration
 =================
 
 ``ivpm-build`` ships a ``CmakeBuilder`` class that drives a CMake
-configure → build → install cycle independently of the ``setuptools``
-command hierarchy.
+configure → build → install cycle.  In a typical native-extension project,
+``CmakeBuilder`` is called *before* the Cython/C++ extension is compiled so
+that the CMake-installed headers and the native shared library are in place when
+``BuildExt`` runs.
+
+What gets built
+---------------
+
+A CMake project managed by ``ivpm-build`` typically produces:
+
+* A native shared library (e.g. ``libmypkg.so``) that the Python extension
+  links against.
+* Public headers installed to ``build/include/``, which ``BuildExt`` adds to
+  the compiler's include path.
+* Generated Cython source files (e.g. from ANTLR4 grammars) that ``BuildExt``
+  then compiles.
+
+``PACKAGES_DIR`` and IVPM dependency layout
+--------------------------------------------
+
+``CmakeBuilder`` resolves the packages directory automatically:
+
+1. If ``<proj_dir>/packages/`` exists → ``PACKAGES_DIR=<proj_dir>/packages``.
+2. Otherwise → ``PACKAGES_DIR=<parent of proj_dir>``.
+
+The resolved path is passed to CMake as ``-DPACKAGES_DIR=...``.  CMake
+``find_package`` / ``find_library`` calls in the project's ``CMakeLists.txt``
+can use ``PACKAGES_DIR`` to locate headers and libraries from other
+IVPM-managed packages (e.g. ``debug-mgr``, ``ciostream``, ``antlr4-runtime``).
 
 Basic usage
 -----------
@@ -31,7 +58,7 @@ The build tool (generator) can be overridden at runtime:
 
 .. code-block:: bash
 
-   CMAKE_BUILD_TOOL="Unix Makefiles" python -m build
+    CMAKE_BUILD_TOOL="Unix Makefiles" python -m build
 
 Supported values: ``"Ninja"`` (default), ``"Unix Makefiles"``.
 
@@ -41,16 +68,6 @@ Supported values: ``"Ninja"`` (default), ``"Unix Makefiles"``.
 Pass ``debug=True`` to ``CmakeBuilder`` or set the environment variable
 ``DEBUG=1`` (or ``y`` / ``Y``) to build with
 ``-DCMAKE_BUILD_TYPE=Debug``.
-
-``PACKAGES_DIR`` convention
-----------------------------
-
-``CmakeBuilder`` discovers the packages directory automatically:
-
-1. If ``<proj_dir>/packages/`` exists → ``PACKAGES_DIR=<proj_dir>/packages``.
-2. Otherwise → ``PACKAGES_DIR=<parent of proj_dir>``.
-
-The resolved path is passed to CMake as ``-DPACKAGES_DIR=...``.
 
 Platform notes
 --------------
@@ -62,15 +79,12 @@ Platform notes
 Optional ``scikit-build-core`` bridge (``IVPMHook``)
 ----------------------------------------------------
 
-If ``scikit-build-core`` is installed (``pip install ivpm-build[cmake]``),
-``IVPMHook`` can inject IVPM prefix paths into CMake:
+If ``scikit-build-core`` is installed, ``IVPMHook`` can inject IVPM prefix
+paths into CMake:
 
 .. code-block:: toml
 
    # pyproject.toml
-   [tool.scikit-build.cmake.build-type]
-   ...
-
    [tool.scikit-build.hooks]
    build = "ivpm_build.cmake.skbuild_bridge:IVPMHook"
 

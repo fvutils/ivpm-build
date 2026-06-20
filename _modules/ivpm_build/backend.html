@@ -42,10 +42,10 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmake.html">CMake Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../cmake.html">CMake Integration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/config.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.config</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../api/backend.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> API</a></li>
@@ -83,12 +83,15 @@
 <span class="sd">``[tool.ivpm-build]`` in ``pyproject.toml`` before each hook is invoked.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">setuptools.build_meta</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_st</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_config</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.setup</span><span class="w"> </span><span class="kn">import</span> <span class="n">ivpm_data</span> <span class="k">as</span> <span class="n">_idata</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.setup.ivpm_data</span><span class="w"> </span><span class="kn">import</span> <span class="n">expand_libvars</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_apply_ivpm_config</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
@@ -102,6 +105,120 @@
         <span class="n">_idata</span><span class="o">.</span><span class="n">_ivpm_ext_name_m</span> <span class="o">=</span> <span class="p">{</span>
             <span class="n">e</span><span class="o">.</span><span class="n">module</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">ext_name_map</span>
         <span class="p">}</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># extra-data staging</span>
+<span class="c1">#</span>
+<span class="c1"># In the pure-pyproject (backend) path there is no setup.py, so the InstallLib</span>
+<span class="c1"># command that copies ``extra-data`` artifacts into the wheel is never wired in.</span>
+<span class="c1"># Instead we copy each ``extra-data`` entry into the package&#39;s *source* directory</span>
+<span class="c1"># before delegating to setuptools, so the files are picked up as ordinary package</span>
+<span class="c1"># data, then remove them afterwards to keep the source tree clean.</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_load_setuptools_package_dir</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the ``[tool.setuptools] package-dir`` mapping from pyproject.toml.</span>
+
+<span class="sd">    Returns an empty dict when the file or section is absent.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="s2">&quot;pyproject.toml&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">{}</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">tomllib</span>  <span class="c1"># Python &gt;= 3.11</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">tomli</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tomllib</span>  <span class="c1"># type: ignore[no-redef]</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">tomllib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tool&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;setuptools&quot;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;package-dir&quot;</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_pkg_src_dir</span><span class="p">(</span><span class="n">pkg</span><span class="p">,</span> <span class="n">package_dir</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve a package name to its source directory using setuptools&#39; rules.&quot;&quot;&quot;</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">pkg</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pkg</span> <span class="ow">in</span> <span class="n">package_dir</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">package_dir</span><span class="p">[</span><span class="n">pkg</span><span class="p">]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s2">&quot;&quot;</span> <span class="ow">in</span> <span class="n">package_dir</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">package_dir</span><span class="p">[</span><span class="s2">&quot;&quot;</span><span class="p">],</span> <span class="o">*</span><span class="n">parts</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="o">*</span><span class="n">parts</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_resolve_extra_data_src</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Expand template vars in *src* and return an existing absolute path or None.</span>
+
+<span class="sd">    Tries the default ``{libdir}`` resolution first, then explicit ``lib``/</span>
+<span class="sd">    ``lib64`` so a single spec works regardless of where CMake placed the lib.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">cand</span> <span class="ow">in</span> <span class="p">(</span>
+        <span class="n">expand_libvars</span><span class="p">(</span><span class="n">src</span><span class="p">),</span>
+        <span class="n">expand_libvars</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">libdir</span><span class="o">=</span><span class="s2">&quot;lib&quot;</span><span class="p">),</span>
+        <span class="n">expand_libvars</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">libdir</span><span class="o">=</span><span class="s2">&quot;lib64&quot;</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">cand</span> <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">cand</span><span class="p">)</span> <span class="k">else</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">(),</span> <span class="n">cand</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">p</span>
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_stage_extra_data</span><span class="p">(</span><span class="n">config</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Copy ``extra-data`` artifacts into package source dirs for the wheel build.</span>
+
+<span class="sd">    Returns the list of paths created, so the caller can remove them afterwards.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">staged</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">extra_data</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">staged</span>
+
+    <span class="n">package_dir</span> <span class="o">=</span> <span class="n">_load_setuptools_package_dir</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">extra_data</span><span class="p">:</span>
+        <span class="n">src</span> <span class="o">=</span> <span class="n">_resolve_extra_data_src</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">src</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">src</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ivpm-build: warning: extra-data src not found: </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="n">spec</span><span class="o">.</span><span class="n">src</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="n">pkg_dir</span> <span class="o">=</span> <span class="n">_pkg_src_dir</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">pkg</span><span class="p">,</span> <span class="n">package_dir</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+            <span class="n">dst_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pkg_dir</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">dst</span><span class="p">)</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">src</span><span class="p">))</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+            <span class="n">staged</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ivpm-build: staged </span><span class="si">%s</span><span class="s2"> -&gt; </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">))</span>
+
+            <span class="c1"># On Windows ship the import library alongside the DLL.</span>
+            <span class="k">if</span> <span class="s2">&quot;</span><span class="si">{dllext}</span><span class="s2">&quot;</span> <span class="ow">in</span> <span class="n">spec</span><span class="o">.</span><span class="n">src</span> <span class="ow">and</span> <span class="n">platform</span><span class="o">.</span><span class="n">system</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;Windows&quot;</span><span class="p">:</span>
+                <span class="n">link_lib</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.dll&quot;</span><span class="p">,</span> <span class="s2">&quot;.lib&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">link_lib</span><span class="p">):</span>
+                    <span class="n">link_dst</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dst_dir</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">link_lib</span><span class="p">))</span>
+                    <span class="n">shutil</span><span class="o">.</span><span class="n">copyfile</span><span class="p">(</span><span class="n">link_lib</span><span class="p">,</span> <span class="n">link_dst</span><span class="p">)</span>
+                    <span class="n">staged</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">link_dst</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">src</span><span class="p">):</span>
+            <span class="n">dst</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pkg_dir</span><span class="p">,</span> <span class="n">spec</span><span class="o">.</span><span class="n">dst</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">src</span><span class="p">))</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">dst</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">staged</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ivpm-build: staged </span><span class="si">%s</span><span class="s2">/ -&gt; </span><span class="si">%s</span><span class="s2">/&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">dst</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">staged</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_unstage_extra_data</span><span class="p">(</span><span class="n">staged</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">staged</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">ignore_errors</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;ivpm-build: warning: failed to clean staged </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_cmake</span><span class="p">():</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.cmake.cmake_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">CmakeBuilder</span>
+    <span class="n">CmakeBuilder</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
@@ -132,9 +249,12 @@
     <span class="n">config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">()</span>
     <span class="n">_apply_ivpm_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">cmake</span><span class="p">:</span>
-        <span class="kn">from</span><span class="w"> </span><span class="nn">.cmake.cmake_builder</span><span class="w"> </span><span class="kn">import</span> <span class="n">CmakeBuilder</span>
-        <span class="n">CmakeBuilder</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getcwd</span><span class="p">())</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
-    <span class="k">return</span> <span class="n">_st</span><span class="o">.</span><span class="n">build_wheel</span><span class="p">(</span><span class="n">wheel_directory</span><span class="p">,</span> <span class="n">config_settings</span><span class="p">,</span> <span class="n">metadata_directory</span><span class="p">)</span></div>
+        <span class="n">_run_cmake</span><span class="p">()</span>
+    <span class="n">staged</span> <span class="o">=</span> <span class="n">_stage_extra_data</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_st</span><span class="o">.</span><span class="n">build_wheel</span><span class="p">(</span><span class="n">wheel_directory</span><span class="p">,</span> <span class="n">config_settings</span><span class="p">,</span> <span class="n">metadata_directory</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">_unstage_extra_data</span><span class="p">(</span><span class="n">staged</span><span class="p">)</span></div>
 
 
 
@@ -150,6 +270,8 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">build_editable</span><span class="p">(</span><span class="n">wheel_directory</span><span class="p">,</span> <span class="n">config_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">metadata_directory</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="n">config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">()</span>
     <span class="n">_apply_ivpm_config</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">cmake</span><span class="p">:</span>
+        <span class="n">_run_cmake</span><span class="p">()</span>
     <span class="k">return</span> <span class="n">_st</span><span class="o">.</span><span class="n">build_editable</span><span class="p">(</span><span class="n">wheel_directory</span><span class="p">,</span> <span class="n">config_settings</span><span class="p">,</span> <span class="n">metadata_directory</span><span class="p">)</span></div>
 
 
@@ -157,7 +279,11 @@
 <div class="viewcode-block" id="get_requires_for_build_editable">
 <a class="viewcode-back" href="../../api/backend.html#ivpm_build.backend.get_requires_for_build_editable">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_requires_for_build_editable</span><span class="p">(</span><span class="n">config_settings</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">_st</span><span class="o">.</span><span class="n">get_requires_for_build_editable</span><span class="p">(</span><span class="n">config_settings</span><span class="p">)</span></div>
+    <span class="n">config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">()</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_st</span><span class="o">.</span><span class="n">get_requires_for_build_editable</span><span class="p">(</span><span class="n">config_settings</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">cmake</span> <span class="ow">and</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">!=</span> <span class="s2">&quot;win32&quot;</span><span class="p">:</span>
+        <span class="n">base</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;ninja&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">base</span></div>
 
 
 

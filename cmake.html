@@ -19,8 +19,8 @@
     <script src="_static/js/theme.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="ivpm_build.setup API" href="api/setup.html" />
-    <link rel="prev" title="PEP 517 Build Backend (ivpm_build.backend)" href="backend.html" /> 
+    <link rel="next" title="Migrating from ivpm.setup" href="migration.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -45,18 +45,19 @@
               <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
-<li class="toctree-l1"><a class="reference internal" href="migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a></li>
-<li class="toctree-l1"><a class="reference internal" href="configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">CMake Integration</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-gets-built">What gets built</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#packages-dir-and-ivpm-dependency-layout"><code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> and IVPM dependency layout</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#basic-usage">Basic usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#cmake-build-tool-environment-variable"><code class="docutils literal notranslate"><span class="pre">CMAKE_BUILD_TOOL</span></code> environment variable</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#debug-flag"><code class="docutils literal notranslate"><span class="pre">DEBUG</span></code> flag</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#packages-dir-convention"><code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> convention</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#platform-notes">Platform notes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#optional-scikit-build-core-bridge-ivpmhook">Optional <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code> bridge (<code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code>)</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="migration.html">Migrating from <code class="docutils literal notranslate"><span class="pre">ivpm.setup</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html"><code class="docutils literal notranslate"><span class="pre">[tool.ivpm-build]</span></code> Configuration Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backend.html">PEP 517 Build Backend (<code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code>)</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/setup.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.setup</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/config.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.config</span></code> API</a></li>
 <li class="toctree-l1"><a class="reference internal" href="api/backend.html"><code class="docutils literal notranslate"><span class="pre">ivpm_build.backend</span></code> API</a></li>
@@ -90,8 +91,34 @@
   <section id="cmake-integration">
 <h1>CMake Integration<a class="headerlink" href="#cmake-integration" title="Link to this heading"></a></h1>
 <p><code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> ships a <code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code> class that drives a CMake
-configure → build → install cycle independently of the <code class="docutils literal notranslate"><span class="pre">setuptools</span></code>
-command hierarchy.</p>
+configure → build → install cycle.  In a typical native-extension project,
+<code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code> is called <em>before</em> the Cython/C++ extension is compiled so
+that the CMake-installed headers and the native shared library are in place when
+<code class="docutils literal notranslate"><span class="pre">BuildExt</span></code> runs.</p>
+<section id="what-gets-built">
+<h2>What gets built<a class="headerlink" href="#what-gets-built" title="Link to this heading"></a></h2>
+<p>A CMake project managed by <code class="docutils literal notranslate"><span class="pre">ivpm-build</span></code> typically produces:</p>
+<ul class="simple">
+<li><p>A native shared library (e.g. <code class="docutils literal notranslate"><span class="pre">libmypkg.so</span></code>) that the Python extension
+links against.</p></li>
+<li><p>Public headers installed to <code class="docutils literal notranslate"><span class="pre">build/include/</span></code>, which <code class="docutils literal notranslate"><span class="pre">BuildExt</span></code> adds to
+the compiler’s include path.</p></li>
+<li><p>Generated Cython source files (e.g. from ANTLR4 grammars) that <code class="docutils literal notranslate"><span class="pre">BuildExt</span></code>
+then compiles.</p></li>
+</ul>
+</section>
+<section id="packages-dir-and-ivpm-dependency-layout">
+<h2><code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> and IVPM dependency layout<a class="headerlink" href="#packages-dir-and-ivpm-dependency-layout" title="Link to this heading"></a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code> resolves the packages directory automatically:</p>
+<ol class="arabic simple">
+<li><p>If <code class="docutils literal notranslate"><span class="pre">&lt;proj_dir&gt;/packages/</span></code> exists → <code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR=&lt;proj_dir&gt;/packages</span></code>.</p></li>
+<li><p>Otherwise → <code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR=&lt;parent</span> <span class="pre">of</span> <span class="pre">proj_dir&gt;</span></code>.</p></li>
+</ol>
+<p>The resolved path is passed to CMake as <code class="docutils literal notranslate"><span class="pre">-DPACKAGES_DIR=...</span></code>.  CMake
+<code class="docutils literal notranslate"><span class="pre">find_package</span></code> / <code class="docutils literal notranslate"><span class="pre">find_library</span></code> calls in the project’s <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code>
+can use <code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> to locate headers and libraries from other
+IVPM-managed packages (e.g. <code class="docutils literal notranslate"><span class="pre">debug-mgr</span></code>, <code class="docutils literal notranslate"><span class="pre">ciostream</span></code>, <code class="docutils literal notranslate"><span class="pre">antlr4-runtime</span></code>).</p>
+</section>
 <section id="basic-usage">
 <h2>Basic usage<a class="headerlink" href="#basic-usage" title="Link to this heading"></a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">ivpm_build.cmake</span><span class="w"> </span><span class="kn">import</span> <span class="n">CmakeBuilder</span>
@@ -122,15 +149,6 @@ command hierarchy.</p>
 <code class="docutils literal notranslate"><span class="pre">DEBUG=1</span></code> (or <code class="docutils literal notranslate"><span class="pre">y</span></code> / <code class="docutils literal notranslate"><span class="pre">Y</span></code>) to build with
 <code class="docutils literal notranslate"><span class="pre">-DCMAKE_BUILD_TYPE=Debug</span></code>.</p>
 </section>
-<section id="packages-dir-convention">
-<h2><code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR</span></code> convention<a class="headerlink" href="#packages-dir-convention" title="Link to this heading"></a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">CmakeBuilder</span></code> discovers the packages directory automatically:</p>
-<ol class="arabic simple">
-<li><p>If <code class="docutils literal notranslate"><span class="pre">&lt;proj_dir&gt;/packages/</span></code> exists → <code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR=&lt;proj_dir&gt;/packages</span></code>.</p></li>
-<li><p>Otherwise → <code class="docutils literal notranslate"><span class="pre">PACKAGES_DIR=&lt;parent</span> <span class="pre">of</span> <span class="pre">proj_dir&gt;</span></code>.</p></li>
-</ol>
-<p>The resolved path is passed to CMake as <code class="docutils literal notranslate"><span class="pre">-DPACKAGES_DIR=...</span></code>.</p>
-</section>
 <section id="platform-notes">
 <h2>Platform notes<a class="headerlink" href="#platform-notes" title="Link to this heading"></a></h2>
 <ul class="simple">
@@ -141,12 +159,9 @@ automatically for universal binary support.</p></li>
 </section>
 <section id="optional-scikit-build-core-bridge-ivpmhook">
 <h2>Optional <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code> bridge (<code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code>)<a class="headerlink" href="#optional-scikit-build-core-bridge-ivpmhook" title="Link to this heading"></a></h2>
-<p>If <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code> is installed (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">ivpm-build[cmake]</span></code>),
-<code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code> can inject IVPM prefix paths into CMake:</p>
+<p>If <code class="docutils literal notranslate"><span class="pre">scikit-build-core</span></code> is installed, <code class="docutils literal notranslate"><span class="pre">IVPMHook</span></code> can inject IVPM prefix
+paths into CMake:</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="c1"># pyproject.toml</span>
-<span class="k">[tool.scikit-build.cmake.build-type]</span>
-<span class="p">...</span>
-
 <span class="k">[tool.scikit-build.hooks]</span>
 <span class="n">build</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;ivpm_build.cmake.skbuild_bridge:IVPMHook&quot;</span>
 </pre></div>
@@ -164,8 +179,8 @@ installed.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="backend.html" class="btn btn-neutral float-left" title="PEP 517 Build Backend (ivpm_build.backend)" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="api/setup.html" class="btn btn-neutral float-right" title="ivpm_build.setup API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="migration.html" class="btn btn-neutral float-right" title="Migrating from ivpm.setup" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
