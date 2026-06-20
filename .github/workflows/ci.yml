@@ -44,6 +44,10 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
+        # Don't fail the build if this version was already uploaded (e.g. a
+        # re-run, or a main push without a version bump). The publish-the-same-
+        # version-twice case is exactly what broke CI before.
+        skip-existing: true
 
     - name: Publish Docs
       if: ${{ startsWith(github.ref, 'refs/heads/main') }}
