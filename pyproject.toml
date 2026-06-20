@@ -31,7 +31,7 @@ Documentation = "https://fvutils.github.io/ivpm-build"
 Repository    = "https://github.com/fvutils/ivpm-build"
 
 [tool.setuptools.dynamic]
-version = {attr = "ivpm_build._version._pkg_version"}
+version = {attr = "ivpm_build.__version__._pkg_version"}
 
 [tool.setuptools.packages.find]
 where = ["src"]

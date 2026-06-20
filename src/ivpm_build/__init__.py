@@ -1,1 +1,3 @@
-from ._version import version as __version__
+from .__version__ import get_version as _get_version
+
+__version__ = _get_version()

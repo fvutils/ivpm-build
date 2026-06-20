@@ -29,7 +29,8 @@ jobs:
         pip install build
         rm -rf dist/
         sed -i -e "s/^SUFFIX = \"\"$/SUFFIX = \".${GITHUB_RUN_ID}\"/" \
-          src/ivpm_build/_version.py
+          src/ivpm_build/__version__.py
+        grep "^SUFFIX = " src/ivpm_build/__version__.py
         python -m build .
 
     - name: Build Docs
