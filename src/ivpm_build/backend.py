@@ -3,6 +3,8 @@
 Wraps ``setuptools.build_meta`` and injects IVPM configuration parsed from
 ``[tool.ivpm-build]`` in ``pyproject.toml`` before each hook is invoked.
 """
+import contextlib
+import importlib
 import os
 import platform
 import shutil
@@ -143,6 +145,109 @@ def _run_cmake():
 
 
 # ---------------------------------------------------------------------------
+# Platform wheel tagging
+#
+# A project that ships a CMake-built native library *loaded via ctypes* has no
+# Python C-extension (no ``ext_modules``).  setuptools therefore considers it a
+# pure-Python project and emits a ``py3-none-any`` wheel -- even though the
+# wheel now contains a platform-specific ``.so``/``.dll``/``.dylib``.  Such a
+# wheel is wrong (it would install on the wrong OS/arch) and tools like
+# ``cibuildwheel`` reject it ("Build failed because a pure Python wheel was
+# generated").
+#
+# Because the library is loaded via ctypes it is *not* tied to a specific
+# CPython ABI, so the correct tag is ``py3-none-<platform>`` (e.g.
+# ``py3-none-manylinux2014_x86_64`` after auditwheel) -- platform-specific but
+# interpreter/ABI agnostic -- NOT ``cp311-cp311-...`` (which would force a
+# redundant build per Python version).
+#
+# There is no setup.py in the pure-pyproject path, so we cannot register a
+# ``cmdclass``.  Instead we patch the ``bdist_wheel`` command class in-process
+# for the duration of the delegated build.  setuptools.build_meta runs setup()
+# in this same process, so the patch takes effect; we restore it afterwards.
+# ---------------------------------------------------------------------------
+
+# Candidate locations of the bdist_wheel command class, newest first.
+#   setuptools >= 70.1 vendors it at setuptools.command.bdist_wheel
+#   older setuptools delegates to the standalone ``wheel`` package
+_BDIST_WHEEL_MODULES = (
+    "setuptools.command.bdist_wheel",
+    "wheel.bdist_wheel",
+)
+
+
+@contextlib.contextmanager
+def _platform_wheel_tag():
+    """Force an impure, ABI-agnostic ``py3-none-<platform>`` wheel tag.
+
+    Two things have to change versus a default setuptools build of an
+    extension-less project:
+
+    1. The distribution must be treated as carrying platform binaries so the
+       package is installed into *platlib* -- otherwise the wheel root (platlib)
+       and the installed files (purelib) disagree and setuptools relocates the
+       package under ``<name>.data/purelib/``.  We do this by making
+       ``Distribution.has_ext_modules()`` report ``True`` for the build, which
+       also flips ``bdist_wheel.root_is_pure`` to ``False`` automatically.
+
+    2. The wheel tag must be ``py3-none-<plat>`` (interpreter/ABI agnostic),
+       because the native library is loaded via ctypes and is not bound to a
+       CPython ABI.  A project that genuinely ships a C-extension keeps its
+       original ``cpXX-<abi>-<plat>`` tag.
+
+    The genuine ``has_ext_modules`` answer is recorded per-distribution as
+    ``_ivpm_real_ext`` so the tag logic can tell the two cases apart.
+    """
+    from setuptools.dist import Distribution
+
+    patched = []
+
+    # (1) platlib placement -- also makes root_is_pure False for free.
+    orig_has_ext = Distribution.has_ext_modules
+
+    def has_ext_modules(self, _orig=orig_has_ext):
+        if not hasattr(self, "_ivpm_real_ext"):
+            self._ivpm_real_ext = bool(_orig(self))
+        return True
+
+    Distribution.has_ext_modules = has_ext_modules
+
+    # (2) interpreter/ABI-agnostic tag, unless there is a real C-extension.
+    for mod_name in _BDIST_WHEEL_MODULES:
+        try:
+            mod = importlib.import_module(mod_name)
+        except ImportError:
+            continue
+        cls = getattr(mod, "bdist_wheel", None)
+        if cls is None or getattr(cls, "_ivpm_tag_patched", False):
+            continue
+
+        orig_get_tag = cls.get_tag
+
+        def get_tag(self, _orig=orig_get_tag):
+            impl, abi, plat = _orig(self)
+            if getattr(self.distribution, "_ivpm_real_ext", False):
+                return impl, abi, plat
+            return "py3", "none", plat
+
+        cls.get_tag = get_tag
+        cls._ivpm_tag_patched = True
+        patched.append((cls, orig_get_tag))
+        # The first importable module in priority order is the canonical
+        # bdist_wheel command; patching further (legacy) copies is unnecessary
+        # and would emit deprecation warnings.
+        break
+
+    try:
+        yield
+    finally:
+        Distribution.has_ext_modules = orig_has_ext
+        for cls, orig_get_tag in patched:
+            cls.get_tag = orig_get_tag
+            del cls._ivpm_tag_patched
+
+
+# ---------------------------------------------------------------------------
 # PEP 517 hooks
 # ---------------------------------------------------------------------------
 
@@ -165,6 +270,12 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         _run_cmake()
     staged = _stage_extra_data(config)
     try:
+        # When CMake produced native artifacts, force a platform-specific wheel
+        # tag so the wheel is not mistagged as pure-Python (py3-none-any).
+        if config.cmake:
+            with _platform_wheel_tag():
+                return _st.build_wheel(
+                    wheel_directory, config_settings, metadata_directory)
         return _st.build_wheel(wheel_directory, config_settings, metadata_directory)
     finally:
         _unstage_extra_data(staged)
