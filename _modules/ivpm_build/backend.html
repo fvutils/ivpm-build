@@ -82,6 +82,8 @@
 <span class="sd">Wraps ``setuptools.build_meta`` and injects IVPM configuration parsed from</span>
 <span class="sd">``[tool.ivpm-build]`` in ``pyproject.toml`` before each hook is invoked.</span>
 <span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">platform</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
@@ -222,6 +224,109 @@
 
 
 <span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Platform wheel tagging</span>
+<span class="c1">#</span>
+<span class="c1"># A project that ships a CMake-built native library *loaded via ctypes* has no</span>
+<span class="c1"># Python C-extension (no ``ext_modules``).  setuptools therefore considers it a</span>
+<span class="c1"># pure-Python project and emits a ``py3-none-any`` wheel -- even though the</span>
+<span class="c1"># wheel now contains a platform-specific ``.so``/``.dll``/``.dylib``.  Such a</span>
+<span class="c1"># wheel is wrong (it would install on the wrong OS/arch) and tools like</span>
+<span class="c1"># ``cibuildwheel`` reject it (&quot;Build failed because a pure Python wheel was</span>
+<span class="c1"># generated&quot;).</span>
+<span class="c1">#</span>
+<span class="c1"># Because the library is loaded via ctypes it is *not* tied to a specific</span>
+<span class="c1"># CPython ABI, so the correct tag is ``py3-none-&lt;platform&gt;`` (e.g.</span>
+<span class="c1"># ``py3-none-manylinux2014_x86_64`` after auditwheel) -- platform-specific but</span>
+<span class="c1"># interpreter/ABI agnostic -- NOT ``cp311-cp311-...`` (which would force a</span>
+<span class="c1"># redundant build per Python version).</span>
+<span class="c1">#</span>
+<span class="c1"># There is no setup.py in the pure-pyproject path, so we cannot register a</span>
+<span class="c1"># ``cmdclass``.  Instead we patch the ``bdist_wheel`` command class in-process</span>
+<span class="c1"># for the duration of the delegated build.  setuptools.build_meta runs setup()</span>
+<span class="c1"># in this same process, so the patch takes effect; we restore it afterwards.</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<span class="c1"># Candidate locations of the bdist_wheel command class, newest first.</span>
+<span class="c1">#   setuptools &gt;= 70.1 vendors it at setuptools.command.bdist_wheel</span>
+<span class="c1">#   older setuptools delegates to the standalone ``wheel`` package</span>
+<span class="n">_BDIST_WHEEL_MODULES</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;setuptools.command.bdist_wheel&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;wheel.bdist_wheel&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="nd">@contextlib</span><span class="o">.</span><span class="n">contextmanager</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_platform_wheel_tag</span><span class="p">():</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Force an impure, ABI-agnostic ``py3-none-&lt;platform&gt;`` wheel tag.</span>
+
+<span class="sd">    Two things have to change versus a default setuptools build of an</span>
+<span class="sd">    extension-less project:</span>
+
+<span class="sd">    1. The distribution must be treated as carrying platform binaries so the</span>
+<span class="sd">       package is installed into *platlib* -- otherwise the wheel root (platlib)</span>
+<span class="sd">       and the installed files (purelib) disagree and setuptools relocates the</span>
+<span class="sd">       package under ``&lt;name&gt;.data/purelib/``.  We do this by making</span>
+<span class="sd">       ``Distribution.has_ext_modules()`` report ``True`` for the build, which</span>
+<span class="sd">       also flips ``bdist_wheel.root_is_pure`` to ``False`` automatically.</span>
+
+<span class="sd">    2. The wheel tag must be ``py3-none-&lt;plat&gt;`` (interpreter/ABI agnostic),</span>
+<span class="sd">       because the native library is loaded via ctypes and is not bound to a</span>
+<span class="sd">       CPython ABI.  A project that genuinely ships a C-extension keeps its</span>
+<span class="sd">       original ``cpXX-&lt;abi&gt;-&lt;plat&gt;`` tag.</span>
+
+<span class="sd">    The genuine ``has_ext_modules`` answer is recorded per-distribution as</span>
+<span class="sd">    ``_ivpm_real_ext`` so the tag logic can tell the two cases apart.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">setuptools.dist</span><span class="w"> </span><span class="kn">import</span> <span class="n">Distribution</span>
+
+    <span class="n">patched</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># (1) platlib placement -- also makes root_is_pure False for free.</span>
+    <span class="n">orig_has_ext</span> <span class="o">=</span> <span class="n">Distribution</span><span class="o">.</span><span class="n">has_ext_modules</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">has_ext_modules</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_orig</span><span class="o">=</span><span class="n">orig_has_ext</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_ivpm_real_ext&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_ivpm_real_ext</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">_orig</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="n">Distribution</span><span class="o">.</span><span class="n">has_ext_modules</span> <span class="o">=</span> <span class="n">has_ext_modules</span>
+
+    <span class="c1"># (2) interpreter/ABI-agnostic tag, unless there is a real C-extension.</span>
+    <span class="k">for</span> <span class="n">mod_name</span> <span class="ow">in</span> <span class="n">_BDIST_WHEEL_MODULES</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">mod</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">mod_name</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="bp">cls</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">mod</span><span class="p">,</span> <span class="s2">&quot;bdist_wheel&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="s2">&quot;_ivpm_tag_patched&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="n">orig_get_tag</span> <span class="o">=</span> <span class="bp">cls</span><span class="o">.</span><span class="n">get_tag</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_orig</span><span class="o">=</span><span class="n">orig_get_tag</span><span class="p">):</span>
+            <span class="n">impl</span><span class="p">,</span> <span class="n">abi</span><span class="p">,</span> <span class="n">plat</span> <span class="o">=</span> <span class="n">_orig</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">distribution</span><span class="p">,</span> <span class="s2">&quot;_ivpm_real_ext&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">impl</span><span class="p">,</span> <span class="n">abi</span><span class="p">,</span> <span class="n">plat</span>
+            <span class="k">return</span> <span class="s2">&quot;py3&quot;</span><span class="p">,</span> <span class="s2">&quot;none&quot;</span><span class="p">,</span> <span class="n">plat</span>
+
+        <span class="bp">cls</span><span class="o">.</span><span class="n">get_tag</span> <span class="o">=</span> <span class="n">get_tag</span>
+        <span class="bp">cls</span><span class="o">.</span><span class="n">_ivpm_tag_patched</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">patched</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="bp">cls</span><span class="p">,</span> <span class="n">orig_get_tag</span><span class="p">))</span>
+        <span class="c1"># The first importable module in priority order is the canonical</span>
+        <span class="c1"># bdist_wheel command; patching further (legacy) copies is unnecessary</span>
+        <span class="c1"># and would emit deprecation warnings.</span>
+        <span class="k">break</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">yield</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">Distribution</span><span class="o">.</span><span class="n">has_ext_modules</span> <span class="o">=</span> <span class="n">orig_has_ext</span>
+        <span class="k">for</span> <span class="bp">cls</span><span class="p">,</span> <span class="n">orig_get_tag</span> <span class="ow">in</span> <span class="n">patched</span><span class="p">:</span>
+            <span class="bp">cls</span><span class="o">.</span><span class="n">get_tag</span> <span class="o">=</span> <span class="n">orig_get_tag</span>
+            <span class="k">del</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_ivpm_tag_patched</span>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
 <span class="c1"># PEP 517 hooks</span>
 <span class="c1"># ---------------------------------------------------------------------------</span>
 
@@ -252,6 +357,12 @@
         <span class="n">_run_cmake</span><span class="p">()</span>
     <span class="n">staged</span> <span class="o">=</span> <span class="n">_stage_extra_data</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># When CMake produced native artifacts, force a platform-specific wheel</span>
+        <span class="c1"># tag so the wheel is not mistagged as pure-Python (py3-none-any).</span>
+        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">cmake</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">_platform_wheel_tag</span><span class="p">():</span>
+                <span class="k">return</span> <span class="n">_st</span><span class="o">.</span><span class="n">build_wheel</span><span class="p">(</span>
+                    <span class="n">wheel_directory</span><span class="p">,</span> <span class="n">config_settings</span><span class="p">,</span> <span class="n">metadata_directory</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">_st</span><span class="o">.</span><span class="n">build_wheel</span><span class="p">(</span><span class="n">wheel_directory</span><span class="p">,</span> <span class="n">config_settings</span><span class="p">,</span> <span class="n">metadata_directory</span><span class="p">)</span>
     <span class="k">finally</span><span class="p">:</span>
         <span class="n">_unstage_extra_data</span><span class="p">(</span><span class="n">staged</span><span class="p">)</span></div>
