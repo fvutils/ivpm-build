@@ -31,6 +31,10 @@ and backward-compatible.
      - list of tables
      - ``[]``
      - Extension module rename specifications (see below).
+   * - ``scripts``
+     - list of tables
+     - ``[]``
+     - Built executables to install onto ``PATH`` (see below).
 
 ``extra-data`` entries
 ----------------------
@@ -83,10 +87,45 @@ Example::
    module = "myproject._core"
    name = "{libpref}core{dllext}"
 
+``scripts`` entries
+-------------------
+
+Ship a CMake-built executable in the wheel's ``<dist>.data/scripts/``
+directory.  pip installs it into the environment's scripts directory
+(``bin/`` on Linux/macOS, ``Scripts\`` on Windows), so it is on ``PATH`` in
+an activated virtual environment.  The file is copied byte for byte and
+marked executable; there is no Python launcher.  Applies to ``build_wheel``
+only.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 85
+
+   * - Key
+     - Description
+   * - ``src``
+     - Path to the executable, relative to the project root.  Supports
+       template variables; use ``{exeext}`` for the platform suffix.
+   * - ``optional``
+     - ``true`` to skip the entry, with a message, when the file was not
+       built (for example on a platform the project does not build it for).
+       Default ``false``: a missing file fails the build.
+
+Because pip puts the executable outside the package, it cannot find shared
+libraries in the package through a relative RPATH.  Link it statically
+against the project's own libraries.
+
+Example::
+
+   [[tool.ivpm-build.scripts]]
+   src = "build/bin/mytool{exeext}"
+   optional = true
+
 Template variables
 ------------------
 
-The following variables are expanded in ``src`` and ``name`` fields:
+The following variables are expanded in ``src`` and ``name`` fields
+(including ``scripts`` entries):
 
 .. list-table::
    :header-rows: 1
@@ -102,3 +141,5 @@ The following variables are expanded in ``src`` and ``name`` fields:
      - Same as ``{libpref}``.
    * - ``{dllext}``
      - ``".so"`` (Linux), ``".dylib"`` (macOS), ``".dll"`` (Windows).
+   * - ``{exeext}``
+     - ``".exe"`` on Windows; ``""`` elsewhere.

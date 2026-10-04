@@ -29,6 +29,14 @@ def test_expand_libvars_windows(monkeypatch):
     assert result == "foo.dll"
 
 
+@pytest.mark.parametrize("system,ext", [
+    ("Linux", ""), ("Darwin", ""), ("Windows", ".exe")])
+def test_expand_libvars_exeext(monkeypatch, system, ext):
+    monkeypatch.setattr(platform, "system", lambda: system)
+    assert idata.expand_libvars("bin/tool{exeext}", libdir="lib") == \
+        "bin/tool" + ext
+
+
 def test_expand_libvars_libdir_auto_lib(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(platform, "system", lambda: "Linux")

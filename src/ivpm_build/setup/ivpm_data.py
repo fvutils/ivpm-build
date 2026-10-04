@@ -58,9 +58,11 @@ def expand(subst_m, path):
 def expand_libvars(src, libdir=None):
     libpref = "lib"
     dllext = ".so"
+    exeext = ""
     if platform.system() == "Windows":
         libpref = ""
         dllext = ".dll"
+        exeext = ".exe"
     elif platform.system() == "Darwin":
         libpref = "lib"
         dllext = ".dylib"
@@ -73,6 +75,7 @@ def expand_libvars(src, libdir=None):
         "{libpref}": libpref,
         "{dllpref}": libpref,
         "{dllext}": dllext,
+        "{exeext}": exeext,
     }
 
     return expand(subst_m, src)
