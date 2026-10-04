@@ -24,6 +24,12 @@ class ExtraDataSpec:
 
 
 @dataclass
+class ScriptSpec:
+    src: str
+    optional: bool = False
+
+
+@dataclass
 class ExtNameMapEntry:
     module: str
     name: str
@@ -35,6 +41,7 @@ class IvpmBuildConfig:
     ivpm_dep_pkgs: List[str] = field(default_factory=list)
     extra_data: List[ExtraDataSpec] = field(default_factory=list)
     ext_name_map: List[ExtNameMapEntry] = field(default_factory=list)
+    scripts: List[ScriptSpec] = field(default_factory=list)
 
 
 def load_config(pyproject_path: str = "pyproject.toml") -> IvpmBuildConfig:
@@ -76,9 +83,18 @@ def load_config(pyproject_path: str = "pyproject.toml") -> IvpmBuildConfig:
         for entry in section.get("ext-name-map", [])
     ]
 
+    scripts = [
+        ScriptSpec(
+            src=entry["src"],
+            optional=bool(entry.get("optional", False)),
+        )
+        for entry in section.get("scripts", [])
+    ]
+
     return IvpmBuildConfig(
         cmake=cmake,
         ivpm_dep_pkgs=ivpm_dep_pkgs,
         extra_data=extra_data,
         ext_name_map=ext_name_map,
+        scripts=scripts,
     )

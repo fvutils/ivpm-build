@@ -139,6 +139,105 @@ def _unstage_extra_data(staged):
             print("ivpm-build: warning: failed to clean staged %s (%s)" % (p, e))
 
 
+# ---------------------------------------------------------------------------
+# scripts: native executables installed onto PATH
+#
+# A ``[[tool.ivpm-build.scripts]]`` entry names a built executable that the
+# wheel should carry in ``<dist>.data/scripts/``.  pip installs that directory
+# into the environment's scripts directory (``bin/`` on POSIX, ``Scripts\`` on
+# Windows), so the executable lands on PATH without a Python launcher.
+#
+# setuptools' own ``scripts`` support is not usable for this: build_scripts
+# opens every script as text to look for a ``#!python`` line, which fails on
+# an ELF or Mach-O binary.  Instead, for the duration of the delegated build,
+# the distribution reports that it has scripts (so build_scripts and
+# install_scripts run) and build_scripts copies the executables byte for byte
+# into its build directory.  install_scripts then copies that directory into
+# the wheel's scripts location and marks the files executable.
+# ---------------------------------------------------------------------------
+
+def _resolve_scripts(config):
+    """Return absolute paths of the configured scripts that exist.
+
+    A missing script is an error unless its entry says ``optional = true``,
+    in which case it is reported and skipped.
+    """
+    found = []
+    for spec in config.scripts:
+        src = _resolve_extra_data_src(spec.src)
+        if src is None or not os.path.isfile(src):
+            if spec.optional:
+                print("ivpm-build: optional script not built, skipping: %s"
+                      % spec.src)
+                continue
+            raise FileNotFoundError(
+                "ivpm-build: script not found: %s (expanded: %s)"
+                % (spec.src, expand_libvars(spec.src)))
+        found.append(src)
+    return found
+
+
+@contextlib.contextmanager
+def _wheel_scripts(paths):
+    """Make the delegated build install *paths* as scripts, unmodified."""
+    if not paths:
+        yield
+        return
+
+    from setuptools.dist import Distribution
+    # setuptools has no build_scripts of its own; it uses distutils', which
+    # its import shim maps to setuptools._distutils once setuptools is loaded.
+    from distutils.command.build_scripts import build_scripts
+
+    orig_has_scripts = Distribution.has_scripts
+    orig_run = build_scripts.run
+    # setuptools' build_scripts may inherit run() from distutils; restore by
+    # deleting the override in that case rather than pinning the base method.
+    own_run = "run" in build_scripts.__dict__
+
+    ours = list(paths)
+
+    def has_scripts(self):
+        # install_scripts only copies anything when dist.scripts is non-empty,
+        # and egg_info iterates it, so the executables have to be in the list
+        # itself, not just reported by this method.
+        if self.scripts is None:
+            self.scripts = []
+        for p in ours:
+            if p not in self.scripts:
+                self.scripts.append(p)
+        return True
+
+    def run(self, _orig=orig_run):
+        real = [s for s in (self.scripts or []) if s not in ours]
+        if real:
+            saved = self.scripts
+            self.scripts = real
+            try:
+                _orig(self)
+            finally:
+                self.scripts = saved
+        self.mkpath(self.build_dir)
+        for src in ours:
+            dst = os.path.join(self.build_dir, os.path.basename(src))
+            shutil.copy2(src, dst)
+            if os.name == "posix":
+                mode = os.stat(dst).st_mode
+                os.chmod(dst, mode | 0o755)
+            print("ivpm-build: staged script %s -> %s" % (src, dst))
+
+    Distribution.has_scripts = has_scripts
+    build_scripts.run = run
+    try:
+        yield
+    finally:
+        Distribution.has_scripts = orig_has_scripts
+        if own_run:
+            build_scripts.run = orig_run
+        else:
+            del build_scripts.run
+
+
 def _run_cmake():
     from .cmake.cmake_builder import CmakeBuilder
     CmakeBuilder(os.getcwd()).run()
@@ -268,15 +367,19 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
     _apply_ivpm_config(config)
     if config.cmake:
         _run_cmake()
+    scripts = _resolve_scripts(config)
     staged = _stage_extra_data(config)
     try:
-        # When CMake produced native artifacts, force a platform-specific wheel
-        # tag so the wheel is not mistagged as pure-Python (py3-none-any).
-        if config.cmake:
-            with _platform_wheel_tag():
-                return _st.build_wheel(
-                    wheel_directory, config_settings, metadata_directory)
-        return _st.build_wheel(wheel_directory, config_settings, metadata_directory)
+        with _wheel_scripts(scripts):
+            # When CMake produced native artifacts, force a platform-specific
+            # wheel tag so the wheel is not mistagged as pure-Python
+            # (py3-none-any).
+            if config.cmake:
+                with _platform_wheel_tag():
+                    return _st.build_wheel(
+                        wheel_directory, config_settings, metadata_directory)
+            return _st.build_wheel(
+                wheel_directory, config_settings, metadata_directory)
     finally:
         _unstage_extra_data(staged)
 

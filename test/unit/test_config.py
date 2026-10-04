@@ -6,6 +6,7 @@ from ivpm_build.config import (
     IvpmBuildConfig,
     ExtraDataSpec,
     ExtNameMapEntry,
+    ScriptSpec,
     load_config,
 )
 
@@ -65,6 +66,24 @@ dst = "share"
     cfg = load_config(p)
     assert len(cfg.extra_data) == 1
     assert cfg.extra_data[0] == ExtraDataSpec(pkg="mypkg", src="build/lib/foo.so", dst="share")
+
+
+def test_load_config_scripts(tmp_path):
+    content = """
+[tool.ivpm-build]
+[[tool.ivpm-build.scripts]]
+src = "build/bin/tool{exeext}"
+
+[[tool.ivpm-build.scripts]]
+src = "build/bin/other"
+optional = true
+"""
+    p = _write(tmp_path, content)
+    cfg = load_config(p)
+    assert cfg.scripts == [
+        ScriptSpec(src="build/bin/tool{exeext}", optional=False),
+        ScriptSpec(src="build/bin/other", optional=True),
+    ]
 
 
 def test_load_config_ext_name_map(tmp_path):

@@ -129,3 +129,99 @@ def test_installed_wheel_has_lib_next_to_package(tmp_path):
     libs = [f for f in os.listdir(site)
             if f.endswith((".so", ".dylib", ".dll"))]
     assert libs, "no native lib next to demo/__init__.py in %s" % site
+
+
+# ---------------------------------------------------------------------------
+# [[tool.ivpm-build.scripts]]: a CMake-built executable installed onto PATH
+# ---------------------------------------------------------------------------
+
+SCRIPT_CMAKELISTS = CMAKELISTS + """\
+add_executable(hello hello.c)
+set_target_properties(hello PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+"""
+
+HELLO_C = """\
+#include <stdio.h>
+int main(void) { printf("hello from a wheel\\n"); return 0; }
+"""
+
+SCRIPTS_TOML = """
+[[tool.ivpm-build.scripts]]
+src = "build/bin/hello{exeext}"
+
+[[tool.ivpm-build.scripts]]
+src = "build/bin/not-built{exeext}"
+optional = true
+"""
+
+
+def _make_script_project(root):
+    _make_project(root)
+    (root / "CMakeLists.txt").write_text(SCRIPT_CMAKELISTS)
+    (root / "hello.c").write_text(HELLO_C)
+    with open(root / "pyproject.toml", "a") as fh:
+        fh.write(SCRIPTS_TOML)
+
+
+def _build(proj, wheels):
+    cwd = os.getcwd()
+    os.chdir(proj)
+    try:
+        return backend.build_wheel(str(wheels))
+    finally:
+        os.chdir(cwd)
+
+
+def test_scripts_land_in_wheel_data_scripts(tmp_path):
+    proj = tmp_path / "proj"
+    _make_script_project(proj)
+    wheels = tmp_path / "out"
+    wheels.mkdir()
+    name = _build(proj, wheels)
+
+    exe = "hello.exe" if os.name == "nt" else "hello"
+    member = "demo-0.0.1.data/scripts/" + exe
+    with zipfile.ZipFile(wheels / name) as zf:
+        members = zf.namelist()
+        assert member in members, members
+        record = zf.read("demo-0.0.1.dist-info/RECORD").decode()
+        info = zf.getinfo(member)
+        # Copied byte for byte, not rewritten as a text script.
+        built = (proj / "build" / "bin" / exe).read_bytes()
+        assert zf.read(member) == built
+    assert member + "," in record
+    if os.name == "posix":
+        assert (info.external_attr >> 16) & 0o111, oct(info.external_attr >> 16)
+    # The optional, unbuilt entry is skipped rather than failing the build.
+    assert not any("not-built" in n for n in members), members
+
+
+def test_missing_required_script_fails(tmp_path):
+    proj = tmp_path / "proj"
+    _make_script_project(proj)
+    with open(proj / "pyproject.toml", "a") as fh:
+        fh.write('\n[[tool.ivpm-build.scripts]]\nsrc = "build/bin/absent"\n')
+    wheels = tmp_path / "out"
+    wheels.mkdir()
+    with pytest.raises(FileNotFoundError, match="absent"):
+        _build(proj, wheels)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX venv layout")
+def test_installed_script_runs_from_path(tmp_path):
+    import subprocess
+    import venv
+
+    proj = tmp_path / "proj"
+    _make_script_project(proj)
+    wheels = tmp_path / "out"
+    wheels.mkdir()
+    name = _build(proj, wheels)
+
+    env_dir = tmp_path / "venv"
+    venv.create(env_dir, with_pip=True)
+    subprocess.run([str(env_dir / "bin" / "python"), "-m", "pip", "install",
+                    "-q", str(wheels / name)], check=True)
+    out = subprocess.run([str(env_dir / "bin" / "hello")], check=True,
+                         capture_output=True, text=True).stdout
+    assert out.strip() == "hello from a wheel"
